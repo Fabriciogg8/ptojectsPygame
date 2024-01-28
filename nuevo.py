@@ -1,6 +1,6 @@
 import pygame 
 from sys import exit
-from random import randint
+from random import randint, choice
 
 # INICIA PYGAME
 pygame.init()
@@ -16,20 +16,37 @@ game_active = False
 start_time = 0
 # AHORA HACEMOS OTRA VARIABLE PARA EL SCORE
 score = 0
+# MUSICA BACKGROUND
+bck_music = pygame.mixer.Sound("images_music/ringtones-pink-panther.mp3")
+# ARGS SIGNIFICA EL -1 QUE COMIENCE OTRA VEZ
+bck_music.play(loops = -1)
 
 # CREAMOS LA CLASE PARA NUESTRO HEROE
 class Player(pygame.sprite.Sprite):
     
     def __init__(self):
         super().__init__()
-        self.image = pygame.image.load("hero(3).png").convert_alpha()
+        hero_1 = pygame.image.load("images_music/hero(3).png").convert_alpha()
+        hero_2 = pygame.image.load("images_music/hero(2).png").convert_alpha()
+        hero_3 = pygame.image.load("images_music/hero(1).png").convert_alpha()
+        self.hero_walk = [hero_1, hero_2, hero_3]
+        self.hero_index = 0
+        self.hero_jump = pygame.image.load("images_music/hero(salta).png").convert_alpha()
+
+        self.image = self.hero_walk[self.hero_index] 
         self.rect = self.image.get_rect(midbottom=(100,300))
         self.gravity = 0
+
+        # self.jump_sound = pygame.mixer.Sound("ringtones-pink-panther.mp3")
+        # self.jump_sound.set_volume(0.1)
+
 
     def player_input(self):
         keys = pygame.key.get_pressed()
         if keys [pygame.K_SPACE] and self.rect.bottom >= 300:
             self.gravity = -20
+            # EN MI CASO EL AUDIO ES MUY LARGO Y SE SIGUE REPRODUCIENDO
+            # self.jump_sound.play()
 
     def apply_gravity(self):
         self.gravity += 1
@@ -37,12 +54,65 @@ class Player(pygame.sprite.Sprite):
         if self.rect.bottom > 300:
             self.rect.bottom = 300
 
+    def animation_state(self):
+        if self.rect.bottom < 300:
+            self.image = self.hero_jump
+        else:
+            self.hero_index += 0.1
+            if self.hero_index >= len(self.hero_walk):
+                self.hero_index = 0
+            self.image = self.hero_walk[int(self.hero_index)]
+
     def update(self):
         self.player_input()
         self.apply_gravity()
+        self.animation_state()
 
+
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self,type):
+        super().__init__()
+
+        if type == 'fly':
+            fly_1 = pygame.image.load("images_music/nuevo_enemigo.png").convert_alpha()
+            fly_2 = pygame.image.load("images_music/nuevo_enemigo(2).png").convert_alpha()
+            self.frames = [fly_1, fly_2]
+            y_pos = 210
+        
+        else:
+            snail_1 = pygame.image.load("images_music/tierra(1).png").convert_alpha()
+            snail_2 = pygame.image.load("images_music/tierra(2).png").convert_alpha()
+            snail_3 = pygame.image.load("images_music/tierra(3).png").convert_alpha()
+            self.frames = [snail_1, snail_2, snail_3]
+            y_pos = 300
+        
+        self.animation_index = 0
+        self.image = self.frames[self.animation_index]
+        self.rect = self.image.get_rect(midbottom = (randint(900,1100),y_pos))
+
+    def animation (self):
+        self.animation_index += 0.1
+        if self.animation_index >= len(self.frames):
+            self.animation_index = 0
+        self.image = self.frames[int(self.animation_index)]
+        
+    def destroy(self):
+        if self.rect.x <= -100:
+            self.kill()
+    
+    def update(self):
+        self.animation()
+        self.rect.x -= 1
+        self.destroy()
+
+    
+
+# GRUPO DEL HEROE
 player = pygame.sprite.GroupSingle()
 player.add(Player())
+# GRUPO DE LOS ENEMIGOS
+obstacle_group = pygame.sprite.Group()
 
 # CREAMOS UN TEXTO - ARGS 1-FONT TYPE 2-FONT SIZE
 test_font = pygame.font.Font("Font/Pixeltype.ttf", 40)
@@ -57,22 +127,22 @@ def display_score():
     return current_time
 
 # SUPERFICIES SE LES AGREGA .CONVERT PARA QUE PYGAME LAS MANEGE MEJOR
-sky = pygame.image.load("bosque.png").convert()
-pasto = pygame.image.load("pasto.png").convert()
+sky = pygame.image.load("images_music/bosque.png").convert()
+pasto = pygame.image.load("images_music/pasto.png").convert()
 # test_surface = pygame.Surface((100,200))
 # test_surface.fill("Green") # COLOR DE LA SUPERFICIE
 
 # CREAMOS LAS VARIABLES POSICIONALES DEL ENEMIGO
-enemigo_1 = pygame.image.load("enemigo(1).png").convert_alpha()
-enemigo_2 = pygame.image.load("enemigo(2).png").convert_alpha()
-enemigo_3 = pygame.image.load("enemigo(3).png").convert_alpha()
+enemigo_1 = pygame.image.load("images_music/enemigo(1).png").convert_alpha()
+enemigo_2 = pygame.image.load("images_music/enemigo(2).png").convert_alpha()
+enemigo_3 = pygame.image.load("images_music/enemigo(3).png").convert_alpha()
 enemy_frames_1 = [enemigo_1, enemigo_2, enemigo_3]
 enemy_1_index = 0
 enemy_1_surf = enemy_frames_1[enemy_1_index]
 # enemigo_rect = enemigo.get_rect(midbottom=(600,300))
 # NUEVO ENEMIGO
-n_enemigo_1 = pygame.image.load("nuevo_enemigo.png").convert_alpha()
-n_enemigo_2 = pygame.image.load("nuevo_enemigo(2).png").convert_alpha()
+n_enemigo_1 = pygame.image.load("images_music/nuevo_enemigo.png").convert_alpha()
+n_enemigo_2 = pygame.image.load("images_music/nuevo_enemigo(2).png").convert_alpha()
 enemy_frames_2 = [n_enemigo_1, n_enemigo_2]
 enemy_2_index = 0
 enemy_2_surf = enemy_frames_2[enemy_2_index]
@@ -106,14 +176,21 @@ def collision (player, obstacles):
                 return False
     return True        
 
+def collision_sprite():
+    # ARGS 1-SPRITE, 2-GROUP, 3-BOOLEANO (LA EXPRESION RETORNA UNA LISTA)
+    if pygame.sprite.spritecollide(player.sprite, obstacle_group, False):
+        obstacle_group.empty()
+        return False
+    else:
+        return True
 
 # CREAMOS AL HEROE, ARMAMOS UNA LISTA PARA TODOS SUS CAMINATAS
-hero_1 = pygame.image.load("hero(3).png").convert_alpha()
-hero_2 = pygame.image.load("hero(2).png").convert_alpha()
-hero_3 = pygame.image.load("hero(1).png").convert_alpha()
+hero_1 = pygame.image.load("images_music/hero(3).png").convert_alpha()
+hero_2 = pygame.image.load("images_music/hero(2).png").convert_alpha()
+hero_3 = pygame.image.load("images_music/hero(1).png").convert_alpha()
 hero_walk = [hero_1, hero_2, hero_3]
 hero_index = 0
-hero_jump = pygame.image.load("hero(salta).png").convert_alpha()
+hero_jump = pygame.image.load("images_music/hero(salta).png").convert_alpha()
 hero_surf = hero_walk[hero_index]
 # CREAMOS UN RECTANGULO PARA POSICIONAR BIEN AL HEROE, VAMOS A TENER VARIOS PUNTOS PARA POSICIONARLO, NO SOLO TOPLEFT QUE ES EL UNICO QUE PODES USAR SI NO UTILIZAS ESTE METODO
 player_rect = hero_surf.get_rect(midbottom=(100,300))
@@ -134,7 +211,7 @@ def hero_animation():
 
 
 # PARA LA PANTALLA DE INTRODUCCIÓN
-hero_stand = pygame.image.load("hero(2).png").convert_alpha()
+hero_stand = pygame.image.load("images_music/hero(2).png").convert_alpha()
 # PODEMOS PONERLO EN OTRA ESCALA ARGS: 1-MACACO 2-WIDTH 3-HEIGHT
 # hero_stand = pygame.transform.scale(hero_stand,(200, 150))
 # OTRA FORMA SCALE 2X
@@ -151,10 +228,10 @@ game_message_rect = game_message.get_rect(midbottom=(400,360))
 # CREAMOS UN TIMER PARA OBSTACULOS
 obstacle_timer = pygame.USEREVENT + 1
 # ARGS LA VARIABLE DEL EVENTO Y LOS MILISEGUNDOS QUE QUEREMOS QUE TRANSCURRAN ENTRE EVENTOS
-pygame.time.set_timer(obstacle_timer, 1500)
+pygame.time.set_timer(obstacle_timer, 3000)
 # CREAMOS MAS TIMER PARA LAS ANIMACIONES DE LOS ENEMIGOS
 enemy_1_timer = pygame.USEREVENT + 2
-pygame.time.set_timer(enemy_1_timer, 100)
+pygame.time.set_timer(enemy_1_timer, 500)
 enemy_2_timer = pygame.USEREVENT + 3
 pygame.time.set_timer(enemy_2_timer, 200)
 
@@ -182,11 +259,13 @@ while True:
 
             # EVENTO OBSTACULO
             if event.type == obstacle_timer:
-                # TENEMOS UN IF QUE NOS MANDA 0 ó 1 Y AHI IMPRIME ó ENEMIGO 1 ó ENEMIGO 2 
-                if randint(0,2):
-                    obstacle_rect_list.append(enemy_1_surf.get_rect(bottomright=(randint(900,1800),300)))
-                else:
-                    obstacle_rect_list.append(enemy_2_surf.get_rect(bottomright=(randint(900,1800),290)))
+                # INSTACIAMOS UN OBSTACULO DEL GRUPO OBSTACULO, QUEREMOS MAS SNAILS QUE MOSCAS
+                obstacle_group.add(Obstacle(choice(['fly','snail','snail','snail'])))
+                # # TENEMOS UN IF QUE NOS MANDA 0 ó 1 Y AHI IMPRIME ó ENEMIGO 1 ó ENEMIGO 2 
+                # if randint(0,2):
+                #     obstacle_rect_list.append(enemy_1_surf.get_rect(bottomright=(randint(900,1800),300)))
+                # else:
+                #     obstacle_rect_list.append(enemy_2_surf.get_rect(bottomright=(randint(900,1800),290)))
 
             # HACEMOS EL CODIGO PARA EL CAMBIO DE DISFRAZ DE LOS ENEMIGOS SEGUN EL TIMER
             if event.type == enemy_1_timer:
@@ -239,29 +318,32 @@ while True:
         #     enemigo_rect.left = 800 
         # screen.blit(enemigo,enemigo_rect)
         # MOVIENDO EL OBSTACULO, LLAMAMOS LA FUNCION Y SOOBRESCRIBIMOS LA VARIABLE
-        obstacle_rect_list = obstacle_movement(obstacle_rect_list)
+        # obstacle_rect_list = obstacle_movement(obstacle_rect_list)
         
           
         # MOVIMIENTO DEL HEROE PODEMOS AGARRAR CUALQUIERA DE LOS PUNTOS DEL RECTANGULO
         # player_rect.left += 1
         # LE AGREGAMOS LA GRAVEDAD
-        player_gravity += 1
-        player_rect.y += player_gravity
-        if player_rect.bottom >= 300:
-            player_rect.bottom = 300 
-        hero_animation()
-        screen.blit(hero_surf,player_rect)
+        # player_gravity += 1
+        # player_rect.y += player_gravity
+        # if player_rect.bottom >= 300:
+        #     player_rect.bottom = 300 
+        # hero_animation()
+        # screen.blit(hero_surf,player_rect)
         player.draw(screen)
         player.update()
 
+        # DIBUJAMOS NUESTRO OBSTACULO
+        obstacle_group.draw(screen)
+        obstacle_group.update()
         # COLISIONES
         # if player_rect.colliderect(enemigo_rect):
         #     game_active = False
             # pygame.quit() # ESTO ES LO OPUESTO A PYGAME.init()
             # exit()
         # LLAMAMOS LA FUNCION PARA LAS COLLISIONES SI LA FUNCION DEVUELVE FALSE SE SALE DEL CICLO, YA QUE game_active DEBE SER True SIEMPRE   
-        game_active = collision(player_rect, obstacle_rect_list)
-
+        # game_active = collision(player_rect, obstacle_rect_list)
+        game_active = collision_sprite()
 
         # ESCUCHAMOS LAS TECLAS PARA SABER SI ESTAN PRECIONADAS O NO
         # keys = pygame.key.get_pressed()
